@@ -24,6 +24,7 @@ if [ -z ${BAZEL_VERSION} ]; then
   echo "Couldn't find a valid bazel version in configure.py script"
   exit 1
 fi
+#BAZEL_VERSION="1.2.1"
 
 # Then, install it
 curl -fSsL -O https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh
@@ -50,7 +51,7 @@ declare -r FUZZERS=$(
 # Note the c++11/libc++ flags to build using the same toolchain as the one used
 # to build libFuzzingEngine.
 CFLAGS="${CFLAGS} -fno-sanitize=vptr"
-CXXFLAGS="${CXXFLAGS} -fno-sanitize=vptr -std=c++11 -stdlib=libc++"
+CXXFLAGS="${CXXFLAGS} -fno-sanitize=vptr -std=c++14 -stdlib=libc++ -D_GLIBCXX_USE_CXX14_ABI=0"
 
 # Make sure we run ./configure to detect when we are using a Bazel out of range
 yes "" | ./configure
@@ -120,7 +121,7 @@ declare -r LINK_ARGS="\
 "
 
 # This should always look as successful despite linking error mentioned above.
-bazel build --jobs=2 ${EXTRA_FLAGS} -k //tensorflow/core/kernels/fuzzing:all || true
+bazel build --jobs=36 ${EXTRA_FLAGS} -k //tensorflow/core/kernels/fuzzing:all || true
 
 # For each fuzzer target, we only have to link it manually to get the binary.
 for fuzzer in ${FUZZERS}; do
@@ -129,8 +130,26 @@ for fuzzer in ${FUZZERS}; do
   # Get the file with the parameters for linking or fail if it didn't exist.
   lfile=`ls -1 bazel-bin/tensorflow/core/kernels/fuzzing/${fz}*.params | head -n1`
 
+  # DEBUG to see what's in params files
+  echo "++++++++ DEBUGGING ++++++++"
+  #pwd
+  /usr/bin/ld.gold -v
+  /usr/bin/ld.gold --help
+  clang++ -v
+  # replace -no-as-needed with --no-as-needed
+  #cp ${lfile} ${lfile}_backup
+  #sed -i 's/-no-as-needed//g' ${lfile}
+  #diff ${lfile}_backup ${lfile}
+  #cat ${lfile}
   # Manually link everything.
-  ${CXX} ${CXXFLAGS} $LIB_FUZZING_ENGINE -o ${OUT}/${fz} ${LINK_ARGS} -Wl,@${lfile}
+  ${CXX} ${CXXFLAGS} $LIB_FUZZING_ENGINE -o ${OUT}/${fz} ${LINK_ARGS} @${lfile}
+  if test -f ${OUT}/${fz}; then
+      echo "Linked Binary File Exists"
+  else
+      echo "!!!!! Linked file doesn't exist"
+  fi
+  echo "++++++++ DEBUG IM HERE +++++++"
+  exit 0
 done
 
 # For coverage, we need one extra step, see the envoy and grpc projects.
@@ -165,4 +184,4 @@ for corpus in tensorflow/core/kernels/fuzzing/corpus/*; do
 done
 
 # Finally, make sure we don't accidentally run with stuff from the bazel cache.
-rm -f bazel-*
+#rm -f bazel-*
