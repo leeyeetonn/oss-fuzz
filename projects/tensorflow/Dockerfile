@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/oss-fuzz-base/base-builder@sha256:817f56747a9e6447a52111abff2f4e81a7b95965e76441d9ceded5729a860bb3
 MAINTAINER mihaimaruseac@google.com
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,6 +31,6 @@ RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8
 RUN curl https://bazel.build/bazel-release.pub.gpg | apt-key add -
 RUN apt-get update && apt-get install -y bazel
 
-RUN git clone --depth 1 https://github.com/tensorflow/tensorflow tensorflow
+RUN git clone --branch v1.15.0 https://github.com/tensorflow/tensorflow tensorflow
 WORKDIR $SRC/tensorflow
 COPY build.sh $SRC/
